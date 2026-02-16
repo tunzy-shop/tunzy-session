@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cors from 'cors';
-import crypto from 'crypto';  // <-- Make sure this line is present!
+import crypto from 'crypto';  // Important: crypto is now imported
 import makeWASocket from 'baileys';
 import { useMultiFileAuthState } from 'baileys';
 import pino from 'pino';
@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Sessions directory
+// Sessions directory (persistent on Render)
 const sessionsDir = process.env.RENDER 
     ? '/opt/render/project/src/sessions' 
     : path.join(__dirname, '../sessions');
@@ -25,12 +25,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Generate session ID
+// Generate unique session ID
 function generateSessionId() {
     return `tunzymd2_${crypto.randomBytes(16).toString('hex')}`;
 }
 
-// Pairing endpoint
+// ==================== PAIRING CODE ENDPOINT ====================
 app.post('/api/pair', async (req, res) => {
     try {
         const { phoneNumber } = req.body;
@@ -43,63 +43,21 @@ app.post('/api/pair', async (req, res) => {
         }
 
         const cleanNumber = phoneNumber.replace(/\D/g, '');
+        
+        if (cleanNumber.length < 10 || cleanNumber.length > 15) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid phone number format' 
+            });
+        }
+
         const sessionId = generateSessionId();
         const sessionDir = path.join(sessionsDir, sessionId);
         
         await fs.ensureDir(sessionDir);
         
-        const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
-        
-        const sock = makeWASocket.default({
-            auth: state,
-            logger: pino({ level: 'silent' }),
-            browser: ['TUNZY-MD2', 'Safari', '3.0']
-        });
-
-        setTimeout(async () => {
-            try {
-                const code = await sock.requestPairingCode(cleanNumber);
-                
-                res.json({
-                    success: true,
-                    pairingCode: code,
-                    sessionId: sessionId
-                });
-
-                // Send session to DM when connected
-                sock.ev.on('connection.update', async (update) => {
-                    const { connection } = update;
-                    if (connection === 'open') {
-                        const userJid = cleanNumber + '@s.whatsapp.net';
-                        await sock.sendMessage(userJid, {
-                            text: `✅ *TUNZY-MD2 Session*\n\n*Session ID:*\n\`\`\`${sessionId}\`\`\`\n\n📺 *YouTube:* Tunzy Shop`
-                        });
-                    }
-                });
-                
-            } catch (error) {
-                console.error('Pairing error:', error);
-            }
-        }, 2000);
-
-        sock.ev.on('creds.update', saveCreds);
-
-    } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Server error' 
-        });
-    }
-});
-
-// QR endpoint
-app.post('/api/qr', async (req, res) => {
-    try {
-        const sessionId = generateSessionId();
-        const sessionDir = path.join(sessionsDir, sessionId);
-        
-        await fs.ensureDir(sessionDir);
+        console.log(`📱 New pairing request: ${cleanNumber}`);
+        console.log(`🔑 Session ID: ${sessionId}`);
         
         const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
         
@@ -107,45 +65,138 @@ app.post('/api/qr', async (req, res) => {
             auth: state,
             logger: pino({ level: 'silent' }),
             browser: ['TUNZY-MD2', 'Safari', '3.0'],
-            printQRInTerminal: true
+            syncFullHistory: false
         });
 
+        // Request pairing code after socket is ready
+        setTimeout(async () => {
+            try {
+                const code = await sock.requestPairingCode(cleanNumber);
+                
+                console.log(`✅ Pairing code generated: ${code}`);
+                
+                // Send response back to client
+                res.json({
+                    success: true,
+                    pairingCode: code,
+                    sessionId: sessionId
+                });
+
+                // When connection opens, send session ID to user's DM
+                sock.ev.on('connection.update', async (update) => {
+                    const { connection } = update;
+                    if (connection === 'open') {
+                        console.log('✅ WhatsApp connected, sending session to DM...');
+                        
+                        const userJid = cleanNumber + '@s.whatsapp.net';
+                        try {
+                            await sock.sendMessage(userJid, {
+                                text: `✅ *TUNZY-MD2 Session Generated!*\n\n` +
+                                      `*Session ID:*\n` +
+                                      `\`\`\`${sessionId}\`\`\`\n\n` +
+                                      `📺 *YouTube:* Tunzy Shop\n` +
+                                      `📢 *Join Channel:* https://whatsapp.com/channel/yourchannelid`
+                            });
+                            console.log('✅ Session sent to DM');
+                        } catch (dmError) {
+                            console.log('Failed to send DM:', dmError);
+                        }
+                    }
+                });
+                
+            } catch (error) {
+                console.error('❌ Pairing error:', error);
+                if (!res.headersSent) {
+                    res.status(500).json({ 
+                        success: false, 
+                        message: 'Failed to generate pairing code. Make sure the number is valid.' 
+                    });
+                }
+            }
+        }, 2000);
+
+        // Save credentials when updated
+        sock.ev.on('creds.update', saveCreds);
+
+    } catch (error) {
+        console.error('❌ Server error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Internal server error' 
+        });
+    }
+});
+
+// ==================== QR CODE ENDPOINT ====================
+app.post('/api/qr', async (req, res) => {
+    try {
+        const sessionId = generateSessionId();
+        const sessionDir = path.join(sessionsDir, sessionId);
+        
+        await fs.ensureDir(sessionDir);
+        
+        console.log(`📱 New QR request, Session: ${sessionId}`);
+        
+        const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+        
+        const sock = makeWASocket.default({
+            auth: state,
+            logger: pino({ level: 'silent' }),
+            browser: ['TUNZY-MD2', 'Safari', '3.0'],
+            printQRInTerminal: true,
+            syncFullHistory: false
+        });
+
+        // Listen for QR code
         sock.ev.on('connection.update', (update) => {
-            const { qr } = update;
+            const { qr, connection } = update;
+            
             if (qr) {
+                console.log('✅ QR code generated');
                 res.json({
                     success: true,
                     qr: qr,
                     sessionId: sessionId
                 });
             }
+            
+            if (connection === 'open') {
+                console.log('✅ QR connected successfully');
+            }
         });
 
+        // Save credentials
         sock.ev.on('creds.update', saveCreds);
 
     } catch (error) {
-        console.error('QR error:', error);
+        console.error('❌ QR error:', error);
         res.status(500).json({ 
             success: false, 
-            message: 'QR generation failed' 
+            message: 'Failed to generate QR code' 
         });
     }
 });
 
-// Health check
+// ==================== HEALTH CHECK ====================
 app.get('/health', (req, res) => {
-    res.json({ status: 'OK', time: new Date().toISOString() });
+    res.json({ 
+        status: 'OK', 
+        time: new Date().toISOString(),
+        sessions: fs.readdirSync(sessionsDir).length 
+    });
 });
 
-// Serve frontend
+// ==================== SERVE FRONTEND ====================
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../public', 'index.html'));
 });
 
+// ==================== START SERVER ====================
 app.listen(port, '0.0.0.0', () => {
-    console.log(`┏━━━━━━━━━━━━━━━━━━━━━━━━┓`);
-    console.log(`┃  TUNZY SESSION v1.0    ┃`);
+    console.log('┏━━━━━━━━━━━━━━━━━━━━━━━━┓');
+    console.log('┃  TUNZY SESSION v1.0    ┃');
     console.log(`┃  Port: ${port}                 ┃`);
-    console.log(`┃  YouTube: Tunzy Shop   ┃`);
-    console.log(`┗━━━━━━━━━━━━━━━━━━━━━━━━┛`);
+    console.log('┃  YouTube: Tunzy Shop   ┃');
+    console.log('┗━━━━━━━━━━━━━━━━━━━━━━━━┛');
+    console.log(`📁 Sessions stored in: ${sessionsDir}`);
 });
