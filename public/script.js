@@ -1,46 +1,58 @@
-function showOptions() {
-    document.getElementById('pairingForm').classList.add('hidden');
-    document.getElementById('qrForm').classList.add('hidden');
-    document.querySelector('.options').classList.remove('hidden');
-}
+let currentMethod = 'pairing';
+
+document.addEventListener('DOMContentLoaded', function() {
+    showPairing();
+    
+    document.getElementById('generateBtn').addEventListener('click', generatePairing);
+    document.getElementById('generateQRBtn').addEventListener('click', generateQR);
+});
 
 function showPairing() {
-    document.querySelector('.options').classList.add('hidden');
+    currentMethod = 'pairing';
+    document.getElementById('pairingTab').classList.add('active');
+    document.getElementById('qrTab').classList.remove('active');
     document.getElementById('pairingForm').classList.remove('hidden');
     document.getElementById('qrForm').classList.add('hidden');
+    document.getElementById('code-container').classList.add('hidden');
+    document.getElementById('qr-result').classList.add('hidden');
 }
 
 function showQR() {
-    document.querySelector('.options').classList.add('hidden');
+    currentMethod = 'qr';
+    document.getElementById('qrTab').classList.add('active');
+    document.getElementById('pairingTab').classList.remove('active');
     document.getElementById('qrForm').classList.remove('hidden');
     document.getElementById('pairingForm').classList.add('hidden');
+    document.getElementById('code-container').classList.add('hidden');
+    document.getElementById('qr-result').classList.add('hidden');
 }
 
 async function generatePairing() {
-    const country = document.getElementById('countryCode').value;
-    const phone = document.getElementById('phoneNumber').value;
+    const phone = document.getElementById('phone').value.trim();
     
     if (!phone) {
         showError('Enter phone number');
         return;
     }
-    
-    const fullNumber = country + phone;
-    
-    showLoading(true);
-    
+
+    const generateBtn = document.getElementById('generateBtn');
+    generateBtn.disabled = true;
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('code-container').classList.add('hidden');
+
     try {
         const res = await fetch('/api/pair', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ phoneNumber: fullNumber })
+            body: JSON.stringify({ phoneNumber: phone })
         });
-        
+
         const data = await res.json();
-        
+
         if (data.success) {
+            document.getElementById('loading').classList.add('hidden');
             document.getElementById('pairingCode').textContent = data.pairingCode;
-            document.getElementById('pairingResult').classList.remove('hidden');
+            document.getElementById('code-container').classList.remove('hidden');
             navigator.clipboard.writeText(data.pairingCode);
         } else {
             showError(data.message || 'Failed');
@@ -48,28 +60,32 @@ async function generatePairing() {
     } catch (err) {
         showError('Network error');
     }
-    
-    showLoading(false);
+
+    generateBtn.disabled = false;
 }
 
 async function generateQR() {
-    showLoading(true);
-    
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('qrContainer').classList.add('hidden');
+    document.getElementById('qr-result').classList.add('hidden');
+
     try {
         const res = await fetch('/api/qr', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'}
         });
-        
+
         const data = await res.json();
-        
+
         if (data.success) {
+            document.getElementById('loading').classList.add('hidden');
+            
             QRCode.toDataURL(data.qr, { width: 250 }, (err, url) => {
                 const img = document.createElement('img');
                 img.src = url;
                 document.getElementById('qrcode').innerHTML = '';
                 document.getElementById('qrcode').appendChild(img);
-                document.getElementById('qrResult').classList.remove('hidden');
+                document.getElementById('qr-result').classList.remove('hidden');
             });
         } else {
             showError(data.message || 'Failed');
@@ -77,17 +93,12 @@ async function generateQR() {
     } catch (err) {
         showError('Network error');
     }
-    
-    showLoading(false);
-}
-
-function showLoading(show) {
-    document.getElementById('loading').classList.toggle('hidden', !show);
 }
 
 function showError(msg) {
+    document.getElementById('loading').classList.add('hidden');
     const error = document.getElementById('error');
     error.textContent = msg;
     error.classList.remove('hidden');
     setTimeout(() => error.classList.add('hidden'), 3000);
-}
+                                }
