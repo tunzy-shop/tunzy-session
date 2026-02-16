@@ -10,64 +10,49 @@
     <div class="container">
         <div class="header">
             <h1>TUNZY-MD2</h1>
-            <p>WhatsApp Bot Session Generator</p>
+            <p>WhatsApp Bot Framework</p>
         </div>
 
-        <div class="options">
-            <div class="option-card" onclick="showPairing()">
-                <div class="option-icon">📱</div>
-                <h3>Pairing Code</h3>
-                <p>Get 8-digit code to link device</p>
-            </div>
-            <div class="option-card" onclick="showQR()">
-                <div class="option-icon">📷</div>
-                <h3>QR Code</h3>
-                <p>Scan QR code with WhatsApp</p>
-            </div>
-        </div>
-
-        <!-- Pairing Form -->
-        <div id="pairingForm" class="form-container hidden">
-            <button class="back-btn" onclick="showOptions()">← Back</button>
-            <h2>📱 Pairing Code</h2>
+        <div class="card">
+            <h2>Get Session ID</h2>
             
-            <div class="input-group">
-                <label>Country Code</label>
-                <input type="text" id="countryCode" placeholder="234" value="234">
+            <div class="toggle-container">
+                <button class="toggle-btn active" id="pairingTab" onclick="showPairing()">📱 Pairing Code</button>
+                <button class="toggle-btn" id="qrTab" onclick="showQR()">📷 QR Code</button>
             </div>
 
-            <div class="input-group">
-                <label>Phone Number</label>
-                <input type="text" id="phoneNumber" placeholder="8012345678">
+            <!-- Pairing Form -->
+            <div id="pairingForm">
+                <div class="input-group">
+                    <input type="text" id="phone" placeholder="Phone number (e.g., 2348012345678)">
+                </div>
+                <button id="generateBtn">Generate Session</button>
             </div>
 
-            <button onclick="generatePairing()">Generate Code</button>
-
-            <div id="pairingResult" class="result-box hidden">
-                <div class="code-display" id="pairingCode"></div>
-                <p class="info">Enter this code in WhatsApp → Linked Devices</p>
+            <!-- QR Form -->
+            <div id="qrForm" class="hidden">
+                <button id="generateQRBtn">Generate QR Code</button>
+                <div id="qrContainer" class="qr-container hidden"></div>
             </div>
+
+            <div id="loading" class="hidden">
+                <div class="spinner"></div>
+                <p>Connecting to WhatsApp...</p>
+            </div>
+
+            <div id="code-container" class="hidden">
+                <div class="code-box" id="pairingCode"></div>
+                <p class="hint">Enter this code in WhatsApp → Linked Devices</p>
+                <p class="small">Code copied to clipboard</p>
+            </div>
+
+            <div id="qr-result" class="hidden">
+                <div class="qr-container" id="qrcode"></div>
+                <p class="hint">Scan this QR with WhatsApp → Linked Devices</p>
+            </div>
+
+            <div id="error" class="hidden"></div>
         </div>
-
-        <!-- QR Form -->
-        <div id="qrForm" class="form-container hidden">
-            <button class="back-btn" onclick="showOptions()">← Back</button>
-            <h2>📷 QR Code</h2>
-            
-            <button onclick="generateQR()">Generate QR</button>
-
-            <div id="qrResult" class="result-box hidden">
-                <div id="qrcode"></div>
-                <p class="info">Scan this QR with WhatsApp → Linked Devices</p>
-            </div>
-        </div>
-
-        <div id="loading" class="loading hidden">
-            <div class="spinner"></div>
-            <p>Processing...</p>
-        </div>
-
-        <div id="error" class="error hidden"></div>
 
         <div class="footer">
             <p>YouTube: Tunzy Shop</p>
@@ -77,4 +62,4 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <script src="script.js"></script>
 </body>
-              </html>
+</html>
