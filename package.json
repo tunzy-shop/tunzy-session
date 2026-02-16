@@ -1,0 +1,26 @@
+{
+  "name": "tunzy-session",
+  "version": "1.0.0",
+  "description": "TUNZY-MD2 WhatsApp Session Generator",
+  "main": "api/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "nodemon api/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "baileys": "^6.7.17",
+    "qrcode": "^1.5.4",
+    "pino": "^8.16.2",
+    "fs-extra": "^11.2.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
