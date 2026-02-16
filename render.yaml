@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: tunzy-session
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    disk:
+      name: sessions-disk
+      mountPath: /opt/render/project/src/sessions
+      sizeGB: 1
