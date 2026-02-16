@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cors from 'cors';
-import crypto from 'crypto';
+import crypto from 'crypto';  // <-- Make sure this line is present!
 import makeWASocket from 'baileys';
 import { useMultiFileAuthState } from 'baileys';
 import pino from 'pino';
